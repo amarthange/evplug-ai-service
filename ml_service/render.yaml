@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: volthub-ml-service
+    runtime: python
+    region: oregon          # us-west-2 — lowest latency from Vercel US East
+    plan: free              # upgrade to starter ($7/mo) to eliminate cold starts
+
+    buildCommand: >
+      pip install --upgrade pip &&
+      pip install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
+
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+
+    healthCheckPath: /health
+
+    envVars:
+      - key: MODEL_DIR
+        value: ./models
+      - key: PORT
+        value: 10000          # Render injects $PORT automatically; this is the default
+      - key: CACHE_TTL_SECONDS
+        value: 300
+      # Firebase credentials — set via Render Dashboard > Environment (paste JSON value)
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        sync: false           # secret — set manually in Render dashboard
+      - key: PYTHON_VERSION
+        value: 3.12.0

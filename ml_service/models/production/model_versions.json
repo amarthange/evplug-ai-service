@@ -1,0 +1,5 @@
+{
+  "lstm_availability": {"version": "v1.0", "trained_at": "2025-04-20", "num_stations": 100},
+  "eta_model": {"version": "v1.2", "trained_at": "2025-04-18"},
+  "meta_learner": {"version": "v2.0", "trained_at": "2025-04-22"}
+}

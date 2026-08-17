@@ -1,0 +1,82 @@
+Update ONLY the specific issues listed below.
+Do NOT change project structure.
+Do NOT refactor architecture.
+Do NOT rename collections.
+Do NOT modify authentication.
+Do NOT change database schema.
+Do NOT rewrite entire files.
+Only patch the related logic.
+
+========================================
+ISSUE 1: MAP SHOWS ONLY 5 STATIONS
+========================================
+
+Problem:
+Firestore contains 22 stations.
+Map only renders 5 markers.
+
+Fix:
+- Ensure Firestore query fetches ALL documents.
+- Remove any hardcoded slice(), limit(), or pagination.
+- Verify real-time listener returns full snapshot.
+- Ensure stations array state is not filtered accidentally.
+- Ensure lat/lon parsing is correct (Number(station.lat), Number(station.lon)).
+
+Only modify the station-fetching and map-render logic.
+
+========================================
+ISSUE 2: PRICE SHOWING IN USD ($)
+========================================
+
+Change currency display to INR (₹).
+
+Requirements:
+- Replace "$" with "₹"
+- Format using Indian number format:
+  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' })
+
+Only update price display components.
+Do NOT change Firestore values.
+Do NOT change backend pricing logic.
+
+========================================
+ISSUE 3: BOOKING FAILS (NO SLOTS AVAILABLE)
+========================================
+
+Problem:
+Connector shows "Available"
+But booking modal says "No slots available"
+
+Fix availability logic:
+
+When checking booking:
+- Count confirmed + hold bookings overlapping same time
+- Compare against connector.count
+- If connector.count is undefined or NaN → treat as 1
+- If active bookings < connector.count → allow booking
+
+Ensure:
+- HOLD bookings expire properly
+- bookingStatus is used (ignore legacy status field)
+
+Only update booking validation logic.
+Do NOT rewrite booking system.
+
+========================================
+ISSUE 4: CONNECTOR AVAILABILITY BADGE
+========================================
+
+Connector should show:
+
+If activeBookings >= connector.count → "In Use"
+Else → "Available"
+
+Fix UI to compute dynamically from bookings.
+
+========================================
+
+IMPORTANT:
+Return only modified code blocks.
+Do NOT rewrite full files.
+Do NOT restructure project.
+Keep backward compatibility.

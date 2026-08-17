@@ -1,0 +1,27 @@
+# ML Service — Pinned production dependencies
+# CPU-only PyTorch installed via extra index URL in render.yaml buildCommand:
+#   pip install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
+
+# Web framework
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+python-multipart==0.0.12
+
+# ML core
+torch==2.6.0+cpu          # CPU-only build via pytorch.org/whl/cpu
+lightgbm==4.6.0
+scikit-learn==1.6.1
+scikit-surprise==1.1.4
+
+# Data
+numpy==1.26.4
+pandas==2.2.3
+scipy==1.15.2
+
+# Firebase
+firebase-admin==6.5.0
+
+# Utilities
+python-dotenv==1.0.1
+pydantic==2.10.3
+joblib==1.4.2

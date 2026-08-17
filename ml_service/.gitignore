@@ -1,0 +1,14 @@
+# Runtime models and data — never commit the large CSV dataset
+models/ev_charging_dataset_50000_india.csv
+
+# Local dev artifacts
+scratch/
+__pycache__/
+*.pyc
+.env
+serviceAccountKey.json
+
+# Python virtual environments
+.venv/
+venv/
+env/

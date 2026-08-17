@@ -1,0 +1,83 @@
+Analyze my entire project and give me a structured system audit.
+
+IMPORTANT:
+- Do NOT modify code.
+- Do NOT rewrite anything.
+- Only analyze and report.
+- Be precise and technical.
+
+========================================
+OBJECTIVE
+========================================
+
+This project is an EV Charging Booking Platform with:
+
+1. Frontend (React / Vite UI)
+2. Express Backend
+3. Firebase Firestore
+4. n8n automation integration
+5. Deployment on Replit (Web Service)
+
+I am currently facing:
+- 404 errors on /automation endpoints
+- Deployment showing "failed to publish"
+- n8n unable to access backend APIs
+
+========================================
+TASK FOR YOU
+========================================
+
+1️⃣ Identify:
+- Where the backend server entry file is
+- Whether Express is properly configured
+- Whether app.listen(3000) exists
+- Whether automation routes exist
+- Whether routes are properly exported and mounted
+
+2️⃣ Check package.json:
+- What is the start script?
+- What command runs in production?
+- Is it starting frontend instead of backend?
+
+3️⃣ Check Deployment Readiness:
+- Is this configured as frontend-only?
+- Is backend actually runnable as Web Service?
+- What command should be used for production run?
+
+4️⃣ List COMPLETED Parts:
+- Frontend UI status
+- Firestore integration
+- Booking logic
+- Connector logic
+- Authentication
+- n8n workflow compatibility
+
+5️⃣ List REMAINING Parts:
+- Backend API deployment issues
+- Automation route exposure
+- CORS configuration
+- Production configuration
+- Environment variables missing
+
+6️⃣ Tell me EXACTLY what information you need from me to complete the system:
+- Required environment variables?
+- Firebase admin config?
+- API keys?
+- Deployment settings?
+- Domain configuration?
+
+========================================
+OUTPUT FORMAT REQUIRED
+========================================
+
+Return structured report:
+
+SECTION 1: Completed Components
+SECTION 2: Partially Completed
+SECTION 3: Missing / Broken
+SECTION 4: Deployment Issues
+SECTION 5: Required Information From Me
+SECTION 6: Exact Next 3 Steps
+
+Do NOT modify code.
+Only audit and report.

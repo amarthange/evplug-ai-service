@@ -1,0 +1,99 @@
+Update my existing Firebase schema usage without changing current app functionality.
+
+IMPORTANT:
+- Do NOT add FastAPI.
+- Do NOT add ML models.
+- Do NOT change existing working logic.
+- Do NOT rename collections.
+- Do NOT delete fields.
+- Only add safe improvements.
+- Maintain full backward compatibility.
+
+========================================
+UPDATES REQUIRED (FIRESTORE ONLY)
+========================================
+
+1️⃣ STATIONS COLLECTION IMPROVEMENTS
+
+Current station structure:
+- address
+- lat
+- lon
+- connectors (array)
+- rating
+- amenities
+- operatingHours
+
+Safe improvements:
+
+A) If connector.count is NaN:
+   - Treat it as 0 in frontend/backend logic.
+   - Do NOT modify Firestore automatically.
+
+B) Add optional derived fields support (if added manually later):
+   - totalConnectors
+   - availableConnectors
+   - averagePricePerKwh
+   - maxPowerKw
+
+If these fields exist:
+   - Use them.
+If not:
+   - Calculate dynamically from connectors array.
+
+----------------------------------------
+
+2️⃣ BOOKINGS COLLECTION CLEANUP
+
+Current fields:
+- bookingStatus
+- status
+- paymentStatus
+- connectorId
+- stationId
+- userId
+
+Update logic to:
+- Always use bookingStatus as primary.
+- Ignore "status" if present.
+- Keep values:
+    hold | confirmed | cancelled | completed
+
+Do NOT delete existing data.
+
+----------------------------------------
+
+3️⃣ CONNECTOR SAFETY FIX
+
+Before using connector.count:
+- If undefined or NaN → default to 0.
+
+----------------------------------------
+
+4️⃣ ADD DATA VALIDATION LAYER
+
+Before saving any new station:
+- Ensure:
+    lat is number
+    lon is number
+    connectors is array
+    powerKw is number
+    pricePerKwh is number
+
+If invalid → reject save.
+
+----------------------------------------
+
+5️⃣ DO NOT:
+- Change authentication
+- Change frontend logic
+- Change document IDs
+- Add new collections
+- Add ML logic
+
+Goal:
+Make Firestore structure stable and future-ML-ready,
+without changing current app behavior.
+
+Return only updated logic sections.
+Do NOT rewrite entire project.

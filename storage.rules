@@ -1,0 +1,70 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Station assets:
+    match /stations/{stationId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null && 
+                      firestore.get(/databases/(default)/documents/stations/$(stationId)).data.ownerId == request.auth.uid;
+    }
+    
+    // Owner QR codes:
+    match /owners/{ownerId}/payment/{file} {
+      allow read: if request.auth != null;
+      allow write, delete: if request.auth != null
+        && request.auth.uid == ownerId
+    }
+    
+    // User profile avatars:
+    match /users/{uid}/avatar.jpg {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 2 * 1024 * 1024
+        && request.resource.contentType.matches("image/.*")
+      allow delete: if request.auth != null
+        && request.auth.uid == uid
+    }
+    
+    // Owner business logo:
+    match /owners/{ownerId}/logo.jpg {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.uid == ownerId
+        && request.resource.size < 2 * 1024 * 1024
+        && request.resource.contentType.matches("image/.*")
+      allow delete: if request.auth != null
+        && request.auth.uid == ownerId
+    }
+    
+    // Owner logo (alternative path):
+    match /owners/{ownerId}/logo/{file} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.uid == ownerId
+        && request.resource.size < 2 * 1024 * 1024
+      allow delete: if request.auth != null
+        && request.auth.uid == ownerId
+    }
+    
+    // Admin metrics exports:
+    match /admin/exports/{file} {
+      allow read: if request.auth != null &&
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "admin"
+      allow write, delete: if request.auth != null
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "admin"
+    }
+    
+    // Session receipts:
+    match /receipts/{userId}/{bookingId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Block all other paths by default:
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

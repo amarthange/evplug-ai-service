@@ -1,0 +1,211 @@
+Create a complete Settings Page UI for the existing EV Charging Platform.
+
+IMPORTANT RULES
+- Do NOT change the project structure.
+- Do NOT rename any collections.
+- Do NOT refactor working code.
+- Do NOT modify authentication logic.
+- Do NOT change routing structure.
+- Do NOT delete any existing components.
+- Only ADD UI sections inside the existing Settings page.
+- Use existing UI components already used in the project.
+
+The Settings page must support role-based display for:
+- EV Users
+- Station Owners
+- Admin
+
+User role is stored in Firestore:
+
+collection: users
+field: role
+
+Possible values:
+"ev_user"
+"owner"
+"admin"
+
+========================================
+
+GENERAL SETTINGS PAGE LAYOUT
+
+The Settings page should include the following sections:
+
+1️⃣ Profile Settings (All Roles)
+
+Display:
+- Full Name
+- Email
+- Phone Number
+
+Buttons:
+- Edit Profile
+- Change Password
+
+Data source:
+users collection
+
+========================================
+
+2️⃣ Vehicle Profile (EV Users Only)
+
+Show only if role === "ev_user"
+
+Display:
+- Vehicle Model
+- Registration Number
+- Battery Capacity
+- Preferred Connector Type
+- Preferred Power
+
+Data source:
+users.vehicleProfile
+
+Buttons:
+- Edit Vehicle
+
+========================================
+
+3️⃣ Payment Settings (All Roles)
+
+Display:
+- Default Payment Method
+- Saved Payment Methods
+- Billing History
+
+Buttons:
+- Add Payment Method
+- View Transactions
+
+========================================
+
+4️⃣ Notification Preferences (All Roles)
+
+Display toggle options:
+
+- Booking confirmation notifications
+- Charging reminder notifications
+- Station availability alerts
+
+Buttons:
+- Save Preferences
+
+========================================
+
+5️⃣ Location Preferences (All Roles)
+
+Display:
+
+- Default city
+- Station search radius
+
+Buttons:
+- Update Location
+
+========================================
+
+6️⃣ Security Settings (All Roles)
+
+Display:
+
+Buttons:
+- Change Password
+- Logout from all devices
+
+========================================
+
+7️⃣ Station Settings (Owner Only)
+
+Show only if role === "owner"
+
+Display:
+
+- Business Name
+- Station Address
+- Operating Hours
+- Connectors
+- Pricing
+
+Buttons:
+- Edit Station
+- Manage Connectors
+
+Data source:
+stations collection
+
+========================================
+
+8️⃣ Admin Settings (Admin Only)
+
+Show only if role === "admin"
+
+Display:
+
+Firebase Status
+Database Tools
+
+Buttons:
+- Seed Sample Data
+- Clear Stations
+
+Also show platform statistics:
+
+- Total Stations
+- Total Users
+- Total Bookings
+
+========================================
+
+UI REQUIREMENTS
+
+Use existing UI components and styling used in the project.
+
+Follow layout structure used in:
+
+client/src/pages
+client/src/components
+
+Use cards or section containers for each settings category.
+
+========================================
+
+FILES TO MODIFY
+
+Only update if needed:
+
+client/src/pages/settings.tsx
+client/src/components/settings-section.tsx
+
+========================================
+
+EXPECTED RESULT
+
+EV User:
+- Profile
+- Vehicle
+- Payment
+- Notifications
+- Location
+- Security
+
+Owner:
+- Profile
+- Payment
+- Notifications
+- Location
+- Security
+- Station Settings
+
+Admin:
+- Profile
+- Payment
+- Notifications
+- Location
+- Security
+- Admin Settings
+
+========================================
+
+Return only modified code blocks.
+Do not rewrite entire files.
+Do not change project structure.

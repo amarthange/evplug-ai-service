@@ -1,0 +1,576 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── HELPER FUNCTIONS ───────────────────────────────────────────
+
+    function isAdmin() {
+      return request.auth != null && (
+        request.auth.token.admin == true ||
+        request.auth.token.email == 'admin@volthub.com' ||
+        request.auth.token.email.matches('.*@volthub\\.com') ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    function isOwner() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/owners/$(request.auth.uid));
+    }
+
+    function isLoggedIn() {
+      return request.auth != null;
+    }
+
+    function isOwnerOf(stationId) {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/stations/$(stationId)).data.ownerId == request.auth.uid;
+    }
+
+    // ─── USERS ───────────────────────────────────────────────────────
+
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      
+      allow create: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow update for self (restricted) or admin (full)
+      allow update: if isAdmin();
+      allow update: if request.auth.uid == userId &&
+                       !request.resource.data.diff(resource.data).affectedKeys()
+                         .hasAny(['referralCode', 'referredBy', 'referralCount', 'role']);
+      
+      allow delete: if isAdmin();
+      
+      match /ev_vehicles/{vehicleId} {
+        allow read, write: if request.auth.uid == userId || isAdmin();
+      }
+    }
+
+    // ─── OWNERS ──────────────────────────────────────────────────────
+
+    match /owners/{uid} {
+      // Anyone can read owner profiles
+      // (needed for public map page to fetch operating hours)
+      allow read: if true;
+      // Only the owner themselves or admin can write
+      allow write: if isLoggedIn() && request.auth.uid == uid;
+      allow write: if isAdmin();
+
+      // Team Access Governance
+      match /teamMembers/{email} {
+        // Owner can manage their team
+        allow read, write: if isLoggedIn() && request.auth.uid == uid;
+        // Admin has full control
+        allow read, write: if isAdmin();
+        // Allows invited user to verify their own role across any owner (collectionGroup)
+        allow read: if isLoggedIn() && request.auth.token.email.lower() == email.lower();
+      }
+
+      // Payout History
+      match /payoutHistory/{monthKey} {
+        allow read, write: if isLoggedIn() && request.auth.uid == uid;
+        allow read, write: if isAdmin();
+      }
+
+      // Owner Alerts
+      match /alerts/{alertId} {
+        allow read, write: if isLoggedIn() && request.auth.uid == uid;
+        allow read, write: if isAdmin();
+      }
+
+      // Owner Autopilot History
+      match /autopilotHistory/{docId} {
+        allow read, write: if isLoggedIn() && request.auth.uid == uid;
+        allow read, write: if isAdmin();
+      }
+    }
+
+    // ─── STATIONS ────────────────────────────────────────────────────
+
+    match /stations/{stationId} {
+      // Anyone can read stations (needed for public map)
+      allow read: if true;
+      // Only logged-in users / admins can create
+      allow create: if isLoggedIn() && (
+        request.resource.data.ownerId == request.auth.uid ||
+        isAdmin()
+      );
+      // Only the station owner or admin can update
+      allow update: if isLoggedIn() && (
+        request.auth.uid == resource.data.ownerId ||
+        isAdmin() ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rating', 'connectors'])
+      );
+      // Only the station owner or admin can delete
+      allow delete: if isLoggedIn() && (
+        request.auth.uid == resource.data.ownerId ||
+        isAdmin()
+      );
+    }
+
+    // ─── REVIEWS ─────────────────────────────────────────────────────
+
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isLoggedIn() &&
+        request.resource.data.userId == request.auth.uid;
+      allow update: if isLoggedIn() && (
+        request.auth.uid == resource.data.userId ||
+        isOwnerOf(resource.data.stationId) ||
+        isAdmin()
+      ) && (
+        isAdmin() || 
+        request.auth.uid == resource.data.userId ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ownerResponse', 'isPinned'])
+      );
+      allow delete: if isLoggedIn() && (
+        request.auth.uid == resource.data.userId ||
+        isAdmin()
+      );
+    }
+
+    // ─── STATION REVIEWS (VERIFIED) ──────────────────────────────────
+
+    match /station_reviews/{reviewId} {
+      allow read: if true; // Public read for all reviews
+      
+      allow create: if request.auth != null && 
+                       request.resource.data.userId == request.auth.uid &&
+                       // Verify user has completed booking at this station
+                       exists(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)) &&
+                       get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.status == 'completed' &&
+                       get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.userId == request.auth.uid &&
+                       get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.stationId == request.resource.data.stationId;
+      
+      allow update: if request.auth != null && 
+                       (
+                         resource.data.userId == request.auth.uid ||
+                         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['helpfulCount']) ||
+                         (
+                           isOwnerOf(resource.data.stationId) &&
+                           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ownerResponse', 'ownerReply', 'repliedAt', 'isPinned'])
+                         ) ||
+                         isAdmin()
+                       );
+      
+      allow delete: if request.auth != null && 
+                       (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // ─── WAITLISTS ───────────────────────────────────────────────────
+
+    match /waitlists/{waitlistId} {
+      allow read: if isLoggedIn();
+      allow create: if isLoggedIn() &&
+        request.resource.data.userId == request.auth.uid;
+      allow update: if isLoggedIn() && (
+        isAdmin() ||
+        (request.resource.data.status in ['notified', 'expired'] && 
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'notifiedAt']))
+      );
+      allow delete: if isAdmin();
+    }
+
+    // ─── WALLET ──────────────────────────────────────────────────────
+
+    match /users/{userId}/wallet/{docId} {
+      allow read, write: if isLoggedIn() && (
+        request.auth.uid == userId ||
+        isAdmin()
+      );
+    }
+
+    // ─── BOOKINGS ────────────────────────────────────────────────────
+
+    match /bookings/{bookingId} {
+      allow read: if (request.auth != null && 
+                     (resource.data.userId == request.auth.uid || 
+                      resource.data.ownerId == request.auth.uid ||
+                      isOwnerOf(resource.data.stationId) ||
+                      isAdmin())) ||
+                      resource.data.status in ['confirmed', 'active', 'pending'];
+      
+      allow create: if request.auth != null && 
+                       request.auth.uid == request.resource.data.userId;
+      
+      allow update: if request.auth != null && 
+                       (resource.data.userId == request.auth.uid || 
+                        resource.data.ownerId == request.auth.uid ||
+                        isOwnerOf(resource.data.stationId) ||
+                        isAdmin());
+      
+      // Allow QR check-in: user can update their own booking from confirmed to active
+      allow update: if request.auth.uid == resource.data.userId &&
+                       resource.data.status == 'confirmed' &&
+                       request.resource.data.status == 'active' &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'checkedInAt']);
+      
+      // Allow receipt URL update
+      allow update: if request.auth.uid == resource.data.userId &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['receiptUrl']);
+      
+      allow delete: if isAdmin();
+    }
+
+    // ─── EV CARS (legacy collection) ─────────────────────────────────
+
+    match /evCars/{carId} {
+      allow read, update, delete: if isLoggedIn() && (
+        request.auth.uid == resource.data.userId ||
+        isAdmin()
+      );
+      allow create: if isLoggedIn() &&
+        request.resource.data.userId == request.auth.uid;
+    }
+
+    // ─── AUDIT LOGS ──────────────────────────────────────────────────
+
+    match /audit_logs/{logId} {
+      // Only admin can read audit logs
+      allow read: if isAdmin();
+      // Only admin can create audit log entries
+      allow create: if isAdmin();
+      // Nobody can update or delete audit logs (immutable records)
+      allow update, delete: if false;
+    }
+
+    // ─── ADMIN COLLABORATION ──────────────────────────────────────────
+
+    match /admin_presence/{adminId} {
+      // Admins can see each other's presence
+      allow read: if isAdmin();
+      // Admins can update their own presence heartbeat
+      allow write: if isAdmin() && (request.auth.uid == adminId || request.auth.uid == resource.data.adminId);
+    }
+
+    match /admin_notes/{noteId} {
+      // Admins can read and write internal collaboration notes
+      allow read, write: if isAdmin();
+    }
+
+    match /admin_notifications/{notifId} {
+      // Admins can read their own notifications
+      allow read: if isAdmin() && resource.data.targetAdminId == request.auth.uid;
+      // Admins can create notifications (mentions)
+      allow create: if isAdmin();
+      // Admins can mark their own notifications as read
+      allow update: if isAdmin() && 
+                       resource.data.targetAdminId == request.auth.uid &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      // Admins can delete their own notifications
+      allow delete: if isAdmin() && resource.data.targetAdminId == request.auth.uid;
+    }
+
+    // ─── GLOBAL SETTINGS ─────────────────────────────────────────────
+
+    match /settings/global {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ─── ML MONITORING ────────────────────────────────────────────────
+
+    match /ml_predictions/{id} {
+      allow read: if isAdmin();
+    }
+
+    match /ml_cold_starts/{id} {
+      allow read: if isAdmin();
+    }
+
+    match /ml_model_performance/{id} {
+      allow read: if isAdmin();
+    }
+
+    match /fraud_alerts/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    match /risk_history/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    match /settings/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ─── ADMIN METRICS ───────────────────────────────────────────────
+
+    match /adminMetrics/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ─── TELEMETRY ───────────────────────────────────────────────────
+
+    match /telemetry/{telemetryId} {
+      // Any logged-in user can read telemetry
+      // (used for ML occupancy predictions display)
+      allow read: if isLoggedIn();
+      // Only the station owner can create telemetry for their station
+      allow create: if isLoggedIn() &&
+        isOwnerOf(request.resource.data.stationId);
+      // Only the station owner can update their telemetry records
+      allow update: if isLoggedIn() &&
+        isOwnerOf(resource.data.stationId);
+      // Only admin can delete telemetry records
+      allow delete: if isAdmin();
+    }
+
+    // ─── NOTIFICATIONS ───────────────────────────────────────────────
+
+    match /notifications/{notificationId} {
+      // Users can only read their own notifications
+      allow read: if isLoggedIn() &&
+        (request.auth.uid == resource.data.userId || request.auth.uid == resource.data.ownerId);
+      // Users can create notifications for themselves, or Admin can create any
+      allow create: if isLoggedIn() && (
+        request.resource.data.userId == request.auth.uid ||
+        request.resource.data.ownerId == request.auth.uid ||
+        request.resource.data.type == 'STATION_AVAILABLE' ||
+        (request.resource.data.stationId != null && isOwnerOf(request.resource.data.stationId)) ||
+        isAdmin()
+      );
+      // Users can update 'read' status
+      allow update: if isLoggedIn() &&
+        (request.auth.uid == resource.data.userId || request.auth.uid == resource.data.ownerId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      // Users can delete their own notifications
+      allow delete: if isLoggedIn() &&
+        (request.auth.uid == resource.data.userId || request.auth.uid == resource.data.ownerId);
+    }
+
+    // ─── ANNOUNCEMENTS ───────────────────────────────────────────────
+
+    match /announcements/{announcementId} {
+      // Anyone can read announcements
+      allow read: if true;
+      // Only admin can create, update, delete
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ─── MAINTENANCE WINDOWS ─────────────────────────────────────────
+
+    match /maintenanceWindows/{windowId} {
+      // Anyone can read maintenance windows for system status
+      allow read: if true;
+      // Only admin can manage
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ─── BOOKING LOCKS ───────────────────────────────────────────────
+
+    match /locks/{lockId} {
+      // Any logged-in user can read locks
+      allow read: if isLoggedIn();
+      // Users can only create locks for themselves
+      allow create: if isLoggedIn() &&
+        request.resource.data.userId == request.auth.uid;
+      // Locks cannot be updated
+      allow update: if false;
+      // Only the lock owner or admin can release a lock
+      allow delete: if isLoggedIn() && (
+        request.auth.uid == resource.data.userId ||
+        isAdmin()
+      );
+    }
+
+    // ─── PROMOTIONS ──────────────────────────────────────────────────
+
+    match /promotions/{promotionId} {
+      // Anyone can read promotions to apply discounts
+      allow read: if true;
+      
+      // Owners can create promotions for themselves
+      allow create: if isLoggedIn() && (
+        request.resource.data.ownerId == request.auth.uid ||
+        isAdmin()
+      );
+      
+      // Owners can manage their existing promotions
+      allow update, delete: if isLoggedIn() && (
+        resource.data.ownerId == request.auth.uid ||
+        isAdmin()
+      );
+    }
+
+    // ─── CHATS & MESSAGING ───────────────────────────────────────────
+    
+    match /chats/{chatId} {
+      allow read: if request.auth != null && (
+        isAdmin() ||
+        resource == null ||
+        resource.data.driverId == request.auth.uid ||
+        resource.data.ownerId == request.auth.uid
+      );
+      allow create: if request.auth != null &&
+        request.resource.data.driverId == request.auth.uid;
+      allow update: if request.auth != null && (
+        resource.data.driverId == request.auth.uid ||
+        resource.data.ownerId == request.auth.uid
+      );
+      
+      match /messages/{messageId} {
+        allow read: if request.auth != null && (
+          get(/databases/$(database)/documents/chats/$(chatId)).data.driverId == request.auth.uid ||
+          get(/databases/$(database)/documents/chats/$(chatId)).data.ownerId == request.auth.uid
+        );
+        allow create: if request.auth != null && (
+          request.resource.data.senderId == request.auth.uid ||
+          (request.resource.data.type == "system" && (
+            get(/databases/$(database)/documents/chats/$(chatId)).data.driverId == request.auth.uid ||
+            get(/databases/$(database)/documents/chats/$(chatId)).data.ownerId == request.auth.uid
+          ))
+        );
+      }
+    }
+
+    // ─── SUPPORT TICKETS ─────────────────────────────────────────────
+
+    match /supportTickets/{ticketId} {
+      allow read: if isAdmin() || (isLoggedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isLoggedIn();
+      allow update: if isAdmin() || (
+        isLoggedIn() && 
+        resource.data.userId == request.auth.uid && 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'description'])
+      );
+      allow delete: if isAdmin();
+    }
+
+    // ─── FLEETS ──────────────────────────────────────────────────────
+
+    match /fleets/{fleetId} {
+      allow read, write: if isLoggedIn() && (
+        (resource != null && resource.data.adminId == request.auth.uid) ||
+        (request.resource != null && request.resource.data.adminId == request.auth.uid) ||
+        isAdmin()
+      );
+
+      match /members/{memberId} {
+        allow read: if isLoggedIn() && (
+          get(/databases/$(database)/documents/fleets/$(fleetId)).data.adminId == request.auth.uid ||
+          (resource != null && resource.data.email == request.auth.token.email) ||
+          isAdmin()
+        );
+        allow write: if isLoggedIn() && (
+          get(/databases/$(database)/documents/fleets/$(fleetId)).data.adminId == request.auth.uid ||
+          isAdmin()
+        );
+      }
+
+      match /monthlyStatements/{statementId} {
+        allow read, write: if isLoggedIn() && (
+          get(/databases/$(database)/documents/fleets/$(fleetId)).data.adminId == request.auth.uid ||
+          isAdmin()
+        );
+      }
+    }
+
+    match /ownerFleetDiscounts/{discountId} {
+      allow read: if isLoggedIn();
+      allow write: if isLoggedIn() && (
+        (resource == null && request.resource.data.ownerId == request.auth.uid) ||
+        (resource != null && resource.data.ownerId == request.auth.uid) ||
+        isAdmin()
+      );
+    }
+
+    // ─── ML LOGGING ──────────────────────────────────────────────────
+
+    match /ml_predictions/{predictionId} {
+      allow read, write, delete: if isAdmin();
+    }
+
+    match /ml_cold_starts/{eventId} {
+      allow read, write, delete: if isAdmin();
+    }
+
+    match /ml_model_performance/{perfId} {
+      allow read, write, delete: if isAdmin();
+    }
+
+    // ─── SAVED ROUTES ────────────────────────────────────────────────
+    
+    match /saved_routes/{routeId} {
+      allow read, delete: if isLoggedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isLoggedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if false; // Routes are generally static once saved
+    }
+
+    // ─── ANALYTICS ───────────────────────────────────────────────────
+    
+    match /analytics_cache/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ─── MAINTENANCE OUTCOMES ────────────────────────────────────────
+
+    match /maintenance_outcomes/{outcomeId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    // ─── ML PERFORMANCE ─────────────────────────────────────────────
+
+    match /ml_model_performance/{perfId} {
+      allow read: if isAdmin();
+      allow write: if false; // Only Admin SDK/ML Service
+    }
+
+    // ─── FRAUD DETECTION ───────────────────────────────────────────
+
+    match /fraud_alerts/{alertId} {
+      allow read: if isAdmin();
+      allow create: if false; // System only (via Admin SDK or Admin Console logic)
+      allow update: if isAdmin(); // Admin can resolve/dismiss
+      allow delete: if isAdmin();
+    }
+
+    // ─── SATISFACTION SURVEYS ─────────────────────────────────────────
+
+    match /satisfaction_surveys/{surveyId} {
+      // Only admins can read surveys for analytics
+      allow read: if isAdmin();
+      // Any logged-in user can submit their own survey
+      allow create: if isLoggedIn() &&
+                       request.resource.data.userId == request.auth.uid;
+      // Surveys are generally immutable
+      allow update, delete: if isAdmin();
+    }
+
+    // ─── ADMIN NOTIFICATION PREFERENCES ──────────────────────────────
+
+    match /admin_notification_prefs/{prefId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ─── NOTIFICATION HISTORY ────────────────────────────────────────
+
+    match /notification_history/{historyId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    // ─── SYSTEM STATS ────────────────────────────────────────────────
+    
+    match /system_stats/{statId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ─── ADMIN COLLABORATION ──────────────────────────────────────────
+
+    match /admin_presence/{presenceId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /admin_notifications/{notificationId} {
+      allow read, write: if isAdmin();
+    }
+
+  }
+}

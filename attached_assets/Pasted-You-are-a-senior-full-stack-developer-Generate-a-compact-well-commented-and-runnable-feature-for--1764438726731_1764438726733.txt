@@ -1,0 +1,116 @@
+You are a senior full-stack developer. Generate a compact, well-commented, and runnable feature for a React (Vite + Tailwind) app integrated with Firebase (Auth + Firestore) that implements the full **New User / Login -> Complete Profile -> Nearby Stations** flow for regular EV users.
+
+GOAL
+- If a user is NEW (after sign-up) they see: Sign Up -> Complete Profile -> Nearby Stations.
+- If a user is RETURNING (already signed in) they see: Login -> Nearby Stations.
+- Ensure route guards, redirects, and Firestore data model are included.
+- Keep changes limited to the files listed below — do not modify any other existing project files.
+
+FEATURE DETAILS
+1) SIGN UP
+- Minimal sign-up fields: fullName, email, password, phoneNumber.
+- On successful signup:
+  - Create Firebase Auth user.
+  - Create Firestore document `/users/{uid}` with:
+    {
+      uid,
+      fullName,
+      email,
+      phoneNumber,
+      createdAt: serverTimestamp(),
+      hasCompletedProfile: false
+    }
+  - Immediately redirect user to `/complete-profile`.
+
+2) LOGIN
+- Email/password login and Google sign-in.
+- After login:
+  - Fetch `/users/{uid}`.
+  - If doc missing or hasCompletedProfile === false => redirect to `/complete-profile`.
+  - Else redirect to `/nearby-stations`.
+
+3) COMPLETE PROFILE (POST-SIGNUP)
+- Page `/complete-profile` collects EV details:
+  - vehicleMakeModel (required)
+  - vehicleRegistrationNumber (required)
+  - preferredConnectorType (dropdown: CCS, CHAdeMO, Type2) (required)
+  - batteryCapacityKWh (optional)
+  - preferredChargingPowerKW (optional)
+  - defaultPaymentMethod (optional)
+- On submit:
+  - Update `/users/{uid}` to include `evProfile` object and set `hasCompletedProfile: true`.
+  - Redirect to `/nearby-stations` with success toast.
+
+4) NEARBY STATIONS
+- Page `/nearby-stations` shows a simple map + list of nearby stations using Firestore `stations` collection.
+- If Firebase config missing, fallback to a local JSON array of sample stations.
+- Nearby logic: find stations within radius (client-side Haversine) or show all sample stations.
+
+5) ROUTE GUARDS & UX
+- Protect routes:
+  - `/nearby-stations` accessible only when auth exists and hasCompletedProfile === true.
+  - `/complete-profile` accessible only when auth exists and hasCompletedProfile === false.
+- If auth token exists but Firestore profile is missing, create minimal profile and send to `/complete-profile`.
+- Show loading states and friendly error messages.
+
+6) FIRESTORE MODEL
+- /users/{uid}: { uid, fullName, email, phoneNumber, createdAt, hasCompletedProfile, evProfile? }
+- /stations/{stationId}: { name, address, location: {lat, lon}, connectors: [...], status: "active"/"inactive" }
+
+7) FALLBACK (if Firebase secrets missing)
+- Store user profile and evProfile in localStorage to allow UI testing offline.
+- Sample station dataset included in `data/sampleStations.json`.
+
+FILES TO CREATE / UPDATE (ONLY THESE)
+--- FILE: frontend/package.json ---
+--- FILE: frontend/vite.config.js ---
+--- FILE: frontend/src/main.jsx ---
+--- FILE: frontend/src/App.jsx ---
+--- FILE: frontend/src/pages/Auth/Signup.jsx ---
+--- FILE: frontend/src/pages/Auth/Login.jsx ---
+--- FILE: frontend/src/pages/CompleteProfile.jsx ---
+--- FILE: frontend/src/pages/NearbyStations.jsx ---
+--- FILE: frontend/src/components/StationList.jsx ---
+--- FILE: frontend/src/components/StationMap.jsx ---
+--- FILE: frontend/src/components/ProfileForm.jsx ---
+--- FILE: frontend/src/services/firebaseClient.js ---
+--- FILE: frontend/src/utils/geoutils.js ---
+--- FILE: frontend/src/data/sampleStations.json ---
+--- FILE: README_NEARBY_FLOW.md ---
+
+IMPLEMENTATION NOTES (REQUIRED)
+- Use Firebase v9 modular SDK. `firebaseClient.js` must export: `auth, db, signUpWithEmail, signInWithEmail, signInWithGoogle, signOut, createUserProfile, getUserProfile, updateUserProfile, fetchStations`.
+- Use `createUserWithEmailAndPassword` for signup and `getDoc/setDoc` for Firestore user docs.
+- Use `onAuthStateChanged` in `main.jsx` to detect auth state and route accordingly (do NOT rely solely on localStorage).
+- Use client-side Haversine formula in `geoutils.js` for distance filtering.
+- `NearbyStations.jsx` should attempt to use real Firestore `stations` collection; if Firestore not configured, load `sampleStations.json`.
+- Keep UI minimal with Tailwind: header, simple forms, loading spinners, and toast messages.
+- Validate required fields; prevent navigation until complete where appropriate.
+- Do not log passwords or sensitive tokens to console; show friendly Firebase error messages (e.g., email already in use).
+- Provide clear comments for each major function.
+
+ENV / REPLIT SECRETS (document in README)
+- VITE_FIREBASE_API_KEY
+- VITE_FIREBASE_AUTH_DOMAIN
+- VITE_FIREBASE_PROJECT_ID
+- VITE_FIREBASE_STORAGE_BUCKET
+- VITE_FIREBASE_MESSAGING_SENDER_ID
+- VITE_FIREBASE_APP_ID
+
+OUTPUT FORMAT
+- Generate each file inline in the response using separators like:
+  --- FILE: <path> ---
+  <file contents>
+- Keep each file concise (aim for < 200 lines where possible).
+- Include `README_NEARBY_FLOW.md` with:
+  - Which secrets to set and how to get them.
+  - Commands to run (`cd frontend`, `npm install`, `npm run dev`).
+  - How to test: new user sign-up flow and returning user login flow.
+  - Explanation of fallback behavior when Firebase is not configured.
+
+CONSTRAINTS
+- ONLY create/modify the files listed above.
+- Do not include any real API keys in the generated code.
+- Ensure the flow works with both real Firebase and local fallback for quick testing.
+
+Now generate the requested files and README exactly in the output format specified so I can copy/paste them into Replit. Keep the code clear and ready-to-run.

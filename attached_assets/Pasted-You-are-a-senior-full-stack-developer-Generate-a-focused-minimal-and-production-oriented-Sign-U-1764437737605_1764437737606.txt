@@ -1,0 +1,106 @@
+You are a senior full-stack developer. Generate a focused, minimal, and production-oriented **Sign Up → Post-Login EV Profile** feature for a React (Vite + Tailwind) app integrated with Firebase (Auth + Firestore). **Only create or modify files listed below** — do not touch any other project files. Keep code simple, well-commented, and runnable on Replit. Provide README instructions and the exact env secrets required.
+
+FEATURE SUMMARY
+1) Minimal Sign Up form (required fields only):
+   - fullName
+   - email
+   - password
+   - phoneNumber
+   After successful sign-up create Firebase Auth user and store profile under Firestore collection `users/{uid}` with fields:
+     { uid, fullName, email, phoneNumber, createdAt, hasCompletedProfile: false }
+   Then redirect user to `/complete-profile`.
+
+2) Login page:
+   - Allow email/password login and Google sign-in.
+   - After login check `users/{uid}`; if `hasCompletedProfile` is false redirect to `/complete-profile`, else go to `/home`.
+
+3) Post-Login EV Profile page (`/complete-profile`):
+   - Collect EV-specific details:
+     • vehicleMakeModel
+     • vehicleRegistrationNumber
+     • preferredConnectorType (dropdown: CCS, CHAdeMO, Type2)
+     • batteryCapacityKWh (optional)
+     • preferredChargingPowerKW (optional)
+     • defaultPaymentMethod (enum card/UPI/wallet) (optional)
+   - Validate required fields, upload to Firestore `users/{uid}.evProfile` or add fields inside `users/{uid}` and set `hasCompletedProfile: true`.
+   - After saving redirect to `/home` with a success toast.
+
+4) Firestore data model:
+   - /users/{uid}:
+     {
+       uid,
+       fullName,
+       email,
+       phoneNumber,
+       createdAt,
+       hasCompletedProfile: boolean,
+       evProfile: {
+         vehicleMakeModel,
+         vehicleRegistrationNumber,
+         preferredConnectorType,
+         batteryCapacityKWh,
+         preferredChargingPowerKW,
+         defaultPaymentMethod
+       }
+     }
+
+FILES TO CREATE / MODIFY (ONLY THESE — do not edit other files)
+--- FILE: frontend/src/pages/Auth/Signup.jsx ---
+--- FILE: frontend/src/pages/Auth/Login.jsx ---
+--- FILE: frontend/src/pages/CompleteProfile.jsx ---
+--- FILE: frontend/src/services/firebaseClient.js ---
+--- FILE: frontend/src/components/ProfileForm.jsx ---
+--- FILE: frontend/src/styles/tailwind.css ---
+--- FILE: README_SIGNUP_PROFILE.md ---
+
+DETAILED REQUIREMENTS & IMPLEMENTATION NOTES
+- Use Firebase v9 modular SDK.
+- `firebaseClient.js` must export:
+  - `auth`, `db`, `signUpWithEmail`, `loginWithEmail`, `loginWithGoogle`, `createUserProfile(uid, profile)`, `getUserProfile(uid)`, `updateUserProfile(uid, data)`.
+- Signup flow:
+  1. Create Auth user with `createUserWithEmailAndPassword`.
+  2. Immediately call `createUserProfile(uid, {fullName, email, phoneNumber, createdAt: serverTimestamp(), hasCompletedProfile: false})`.
+  3. Redirect to `/complete-profile`.
+- Login flow:
+  - After successful login, call `getUserProfile(uid)`.
+  - If profile missing, create a minimal profile as in signup then redirect to `/complete-profile`.
+  - If `hasCompletedProfile === false`, redirect to `/complete-profile`.
+  - Otherwise redirect to `/home`.
+- CompleteProfile flow:
+  - Present `ProfileForm` UI, validate inputs.
+  - On submit call `updateUserProfile(uid, {hasCompletedProfile: true, evProfile: {...}})`.
+  - Show success toast and redirect to `/home`.
+- UI:
+  - Simple responsive forms using Tailwind.
+  - Show inline validation errors.
+  - Loading indicators for network calls.
+  - Friendly error messages from Firebase (e.g., weak-password, email-already-in-use).
+- Security considerations:
+  - Do not log sensitive info (passwords) to console.
+  - Suggest Firestore rules to permit users to read/write only their `/users/{uid}` doc.
+
+ENV / REPLIT SECRETS (list these in README_SIGNUP_PROFILE.md)
+- VITE_FIREBASE_API_KEY
+- VITE_FIREBASE_AUTH_DOMAIN
+- VITE_FIREBASE_PROJECT_ID
+- VITE_FIREBASE_STORAGE_BUCKET
+- VITE_FIREBASE_MESSAGING_SENDER_ID
+- VITE_FIREBASE_APP_ID
+(Explain how to paste the web app config from Firebase Console.)
+
+OUTPUT FORMAT
+- Produce each file inline in the response using this separator format:
+  --- FILE: <path> ---
+  <file contents>
+- At the end, include `README_SIGNUP_PROFILE.md` containing:
+  - What secrets to set and where
+  - Commands to run (npm install, npm run dev)
+  - How to test the flows (signup → complete profile → login)
+  - Example Firebase web config snippet (placeholder values only)
+
+IMPORTANT
+- **Do not modify** any files other than those listed above.
+- If Firebase config is missing, include a local fallback that stores profile data in `localStorage` so the UI remains testable.
+- Keep code compact (each file under ~200 lines if possible) and well commented.
+
+Now generate the requested files and README exactly as specified.

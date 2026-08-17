@@ -1,0 +1,96 @@
+Create backend endpoints to support an n8n booking automation workflow.
+
+IMPORTANT:
+- Do NOT change existing app structure.
+- Do NOT modify existing routes.
+- Only ADD new endpoints.
+- Use Express + Firebase Firestore.
+- Ensure production-safe logic.
+
+========================================
+WORKFLOW SUPPORT REQUIRED
+========================================
+
+1️⃣ Endpoint: GET /automation/hold-bookings
+
+Purpose:
+Return all bookings where:
+- bookingStatus = "hold"
+- paymentStatus != "paid"
+
+Response format:
+[
+  {
+    id,
+    userId,
+    stationId,
+    connectorId,
+    holdExpiresAt,
+    paymentStatus,
+    bookingStatus
+  }
+]
+
+----------------------------------------
+
+2️⃣ Endpoint: PUT /automation/cancel-booking/:bookingId
+
+Purpose:
+Cancel a booking if expired.
+
+Logic:
+- Verify booking exists
+- Verify bookingStatus = "hold"
+- Verify holdExpiresAt < currentTime
+- Update bookingStatus → "cancelled"
+- Add cancelledAt timestamp
+
+Return:
+{ success: true }
+
+----------------------------------------
+
+3️⃣ Endpoint: PUT /automation/free-slot/:bookingId
+
+Purpose:
+Increase connector availability after cancellation.
+
+Logic:
+- Fetch booking
+- Get stationId & connectorId
+- Increase availableConnectors by 1
+- Update connector.available accordingly
+- Ensure no negative values
+
+Return:
+{ success: true }
+
+----------------------------------------
+
+4️⃣ Safety Requirements
+
+- Use Firestore transactions when updating booking + station
+- Prevent double cancellation
+- Add proper error handling
+- Return proper HTTP status codes
+- Add logging
+
+----------------------------------------
+
+5️⃣ DO NOT:
+
+- Modify frontend
+- Modify ML endpoints
+- Modify authentication
+- Modify existing booking routes
+
+----------------------------------------
+
+Goal:
+Support n8n automation flow for:
+Auto-expire hold bookings,
+Free connector slot,
+Send confirmation email.
+
+Return only new route code.
+Do not rewrite entire backend.

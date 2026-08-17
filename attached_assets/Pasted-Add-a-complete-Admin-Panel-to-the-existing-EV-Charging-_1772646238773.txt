@@ -1,0 +1,197 @@
+Add a complete Admin Panel to the existing EV Charging Platform.
+
+IMPORTANT RULES:
+- Do NOT change the current project structure.
+- Do NOT rename collections.
+- Do NOT refactor working components.
+- Do NOT modify authentication logic.
+- Do NOT break existing user or owner dashboards.
+- Only ADD admin functionality.
+- Only show Admin Panel for users with role === "admin".
+
+========================================
+ADMIN ACCESS CONTROL
+========================================
+
+Read user role from Firestore:
+
+collection: users
+field: role
+
+Possible roles:
+- "admin"
+- "owner"
+- "ev_user"
+
+Only users with role === "admin" should see Admin Panel.
+
+If role is not admin:
+- Hide admin components
+- Prevent access to admin routes
+
+========================================
+ADMIN PANEL FEATURES TO ADD
+========================================
+
+Create an Admin Dashboard page that displays platform analytics.
+
+The dashboard should show:
+
+1️⃣ PLATFORM STATS
+- Total Stations
+- Total Users
+- Total Owners
+- Total Bookings
+- Active Bookings
+
+Data sources:
+stations collection
+users collection
+bookings collection
+
+========================================
+
+2️⃣ STATION MANAGEMENT
+
+Admin should be able to:
+
+- View all stations
+- View station location
+- View connectors
+- View owner
+
+Actions:
+- Disable station
+- Delete station
+- View details
+
+Data source:
+stations collection
+
+Fields:
+name
+address
+lat
+lon
+connectors
+rating
+
+========================================
+
+3️⃣ USER MANAGEMENT
+
+Admin should see:
+
+- user name
+- email
+- phone
+- vehicle
+
+Actions:
+- block user
+- view bookings
+
+Data source:
+users collection
+
+========================================
+
+4️⃣ OWNER MANAGEMENT
+
+Admin should see:
+
+- owner name
+- business name
+- email
+- number of stations
+
+Actions:
+- approve owner
+- disable owner
+
+Data source:
+owners collection
+
+========================================
+
+5️⃣ BOOKING MANAGEMENT
+
+Admin should view all bookings.
+
+Display:
+
+- booking id
+- station name
+- connector
+- user
+- time
+- duration
+- payment status
+
+Actions:
+- cancel booking
+- view details
+
+Data source:
+bookings collection
+
+========================================
+
+6️⃣ SYSTEM STATUS
+
+Display:
+
+Firebase connection status
+Total Firestore documents
+
+========================================
+
+7️⃣ FIRESTORE TOOLS
+
+Keep existing tools:
+
+- Seed Sample Data
+- Clear All Stations
+
+These must only be visible to ADMIN.
+
+========================================
+
+UI REQUIREMENTS
+
+Use existing UI components already in project.
+
+Do NOT create new design system.
+
+Follow existing layout used in:
+
+client/src/pages
+client/src/components
+
+========================================
+
+FILES TO CREATE (ONLY IF MISSING)
+
+client/src/pages/admin.tsx
+client/src/components/admin-dashboard.tsx
+
+========================================
+
+EXPECTED RESULT
+
+Admin user:
+- Can open Admin Panel
+- Can manage stations
+- Can view platform stats
+- Can manage bookings
+
+Owner user:
+- Cannot see admin panel
+
+EV user:
+- Cannot see admin panel
+
+========================================
+
+Return only the new or modified code sections.
+Do not rewrite full files.

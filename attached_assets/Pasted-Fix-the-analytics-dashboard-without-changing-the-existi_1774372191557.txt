@@ -1,0 +1,120 @@
+Fix the analytics dashboard without changing the existing app structure.
+
+IMPORTANT:
+
+* Do NOT modify UI layout
+* Do NOT change routing or components
+* Only fix Firestore queries and data processing logic
+
+---
+
+TASK:
+
+1. CREATE A NEW FUNCTION: fetchAnalyticsData()
+
+This function should:
+
+* Fetch bookings from Firestore
+* Calculate revenue
+* Count payments
+* Prepare trend data
+
+---
+
+2. USE SAFE QUERY (NO INDEX BREAK)
+
+Use simple fetch first:
+
+const snapshot = await getDocs(collection(db, "bookings"));
+
+Do NOT use multiple where() filters initially.
+
+---
+
+3. FILTER DATA IN CODE (NOT FIRESTORE)
+
+Inside JavaScript:
+
+const confirmedBookings = snapshot.docs.filter(doc => {
+const data = doc.data();
+return data.bookingStatus === "confirmed" && data.paymentStatus === "paid";
+});
+
+---
+
+4. CALCULATE REVENUE
+
+let totalRevenue = 0;
+
+confirmedBookings.forEach(doc => {
+totalRevenue += doc.data().totalPrice || 0;
+});
+
+---
+
+5. PAYMENT METRICS
+
+const successfulPayments = confirmedBookings.length;
+
+const failedPayments = snapshot.docs.filter(doc => {
+return doc.data().paymentStatus === "failed";
+}).length;
+
+---
+
+6. BOOKING TRENDS (LAST 30 DAYS)
+
+const last30Days = Date.now() - (30 * 24 * 60 * 60 * 1000);
+
+const recentBookings = confirmedBookings.filter(doc => {
+return doc.data().createdAt >= last30Days;
+});
+
+---
+
+7. RETURN DATA
+
+return {
+totalRevenue,
+successfulPayments,
+failedPayments,
+recentBookingsCount: recentBookings.length
+};
+
+---
+
+8. INTEGRATE INTO EXISTING DASHBOARD
+
+Replace ONLY the data source logic:
+
+Example:
+
+const analytics = await fetchAnalyticsData();
+
+setRevenue(analytics.totalRevenue);
+setSuccessfulPayments(analytics.successfulPayments);
+setFailedPayments(analytics.failedPayments);
+
+---
+
+9. DEBUG LOGS (IMPORTANT)
+
+console.log("Bookings fetched:", snapshot.size);
+console.log("Confirmed bookings:", confirmedBookings.length);
+console.log("Revenue:", totalRevenue);
+
+---
+
+10. DO NOT CHANGE:
+
+* Firestore structure
+* Existing UI components
+* Navigation
+* Authentication
+* Existing API routes
+
+---
+
+GOAL:
+
+Fix dashboard values WITHOUT affecting existing codebase.

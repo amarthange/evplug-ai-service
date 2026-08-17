@@ -1,0 +1,120 @@
+You are a senior full-stack developer and DevOps engineer. Generate a complete, working repository for an **AI-EV-Charging-Locator & Smart Booking System** that is ready to run on Replit after the user sets a few secrets. The repo must be easy for a student to understand and extend. Produce all files, folder structure, and clear README instructions. Keep code simple, well-commented, and avoid advanced production-only features.
+
+--- REQUIRED FUNCTIONALITY (MVP)
+1. Frontend (React + Vite + Tailwind)
+   - Map-first UI using Mapbox GL JS (fallback to OpenStreetMap tile layer if no Mapbox token).
+   - Pages: Home (map + nearby markers), Station Detail (connectors + availability + Book), My Bookings, Login/Signup.
+   - Firebase Auth (email/password + Google) for login.
+   - Use Firebase client SDK for reading/writing stations and bookings.
+   - Show realtime updates via Firestore listeners so markers update when simulator writes telemetry.
+   - Booking modal: pick connector, start time, confirm booking; create booking document in Firestore and show reservation status.
+
+2. Backend server (Node.js + Express)
+   - Expose endpoints:
+     - `GET /api/stations/nearby?lat=&lon=&radius_km=` — return stations from Firestore (with predicted availability if ML service present).
+     - `POST /api/bookings` — create booking; enforce a 10-minute lock TTL via booking document field `lock_expires_at`.
+     - `POST /api/webhook/payment` — simulated payment webhook that updates booking status.
+     - `POST /api/predict` — proxy to ML service if available, otherwise return heuristic simulated predictions.
+   - Use `firebase-admin` to read/write server-side documents (use admin credentials via Replit secret).
+
+3. ML microservice (Python + FastAPI)
+   - Endpoint `POST /predict` accepts `{station_id, telemetry: [{timestamp, occupied}], lookback_minutes}` and returns `{predicted_available_slots, confidence}`.
+   - If no trained model exists, respond with a deterministic heuristic (e.g., availability = total_connectors * (1 - occupancy_rate)).
+   - Include `notebooks/train_lightgbm.ipynb` that demonstrates training a LightGBM model on synthetic telemetry and saving a model file to `/ml_service/models/lightgbm_model.pkl`.
+   - Provide `requirements.txt` and a Dockerfile or instructions to run the ML service with `uvicorn`.
+
+4. Telemetry simulator (Python)
+   - Script `simulator/run_simulator.py` that either writes telemetry to Firestore (if FIREBASE_ADMIN_CREDENTIALS present) or writes to a local JSON file.
+   - CLI flags: `--station-count`, `--interval-seconds`, `--use-firestore` (true/false).
+   - Simulator creates sample stations (with connectors and lat/lon) on first run if none exist.
+
+5. Project must run on Replit
+   - Provide `.replit` instruction examples and use `concurrently` (or similar) so frontend + backend + ml_service can be launched together in dev mode.
+   - Include clear instructions for Replit secrets.
+
+--- TECH STACK & CONSTRAINTS
+- Frontend: React (Vite) + Tailwind CSS, Mapbox GL JS with OSM fallback
+- Backend: Node.js (v18+) + Express, firebase-admin
+- ML: Python 3.10+, FastAPI, LightGBM (not required to install heavy libs if using heuristic)
+- Database: Firebase Firestore for prototyping (or local JSON fallback)
+- Hosting: Replit dev environment; provide `npm` and `pip` run commands
+- Avoid calling any paid APIs during generation. If API tokens are missing, code must fall back to local/static behavior.
+
+--- FOLDER STRUCTURE (must create)
+/frontend
+  package.json
+  vite.config.js
+  src/
+    main.jsx
+    App.jsx
+    pages/Home.jsx
+    pages/Station.jsx
+    pages/MyBookings.jsx
+    pages/Auth.jsx
+    components/Map.jsx
+    components/BookingModal.jsx
+    services/firebaseClient.js
+    services/api.js
+/server
+  package.json
+  index.js
+  routes/stations.js
+  routes/bookings.js
+  services/firebaseAdmin.js
+/ml_service
+  main.py
+  requirements.txt
+  notebooks/train_lightgbm.ipynb
+  models/  # include sample placeholder model file or README placeholder
+/simulator
+  run_simulator.py
+README.md
+Dockerfile (optional)
+.env.example
+
+--- ENVIRONMENT VARIABLES / REPLIT SECRETS (list these in README)
+- VITE_MAPBOX_TOKEN (optional)
+- VITE_FIREBASE_API_KEY
+- VITE_FIREBASE_AUTH_DOMAIN
+- VITE_FIREBASE_PROJECT_ID
+- VITE_FIREBASE_STORAGE_BUCKET
+- VITE_FIREBASE_MESSAGING_SENDER_ID
+- VITE_FIREBASE_APP_ID
+- FIREBASE_ADMIN_CREDENTIALS (JSON string for server; required for backend + simulator to use Firestore)
+- STRIPE_SECRET_KEY (optional, simulated in dev)
+- NODE_ENV=development
+
+--- DEV SCRIPTS (package.json must contain)
+- frontend: `dev` -> `vite`, `build`, `preview`
+- server: `dev` -> `nodemon index.js`, `start` -> `node index.js`
+- ml_service: `dev` -> `uvicorn main:app --reload --port 8001`
+- top-level `dev` script using `concurrently` to run frontend + server + ml_service (if present)
+
+--- READABLE CODE & COMMENTS
+- Keep each file compact and commented.
+- Add helpful console logs and README directions in each major file.
+- Add fallback logic: if Mapbox token missing, use OSM tiles; if FIREBASE is missing, use local JSON store.
+
+--- README CONTENT (must be generated)
+- Project overview & features.
+- Exact Replit setup steps (how to add secrets).
+- Commands to run frontend / backend / ml_service / simulator.
+- How to test booking flow locally (simulate payments).
+- How to train a model in Colab or locally using the provided notebook (optional).
+- Troubleshooting tips (common errors and fixes).
+
+--- QUALITY & DELIVERY
+- Generate working minimal code for each part; where heavy dependencies (like LightGBM) are optional, include a working heuristic fallback.
+- Keep UI minimal but usable — map, marker popups, booking modal, and auth flows should be functional.
+- Do not include any external private API keys in generated files. Use environment variables.
+- At the end of generation, print a short checklist of secrets to add and exact commands to run: e.g.,
+  1. Set Replit secrets: VITE_MAPBOX_TOKEN, VITE_FIREBASE_API_KEY, FIREBASE_ADMIN_CREDENTIALS, ...
+  2. Run `npm install` in frontend and server, `pip install -r ml_service/requirements.txt` if using ml_service.
+  3. Start dev with `npm run dev` (top-level) or start individual services.
+
+--- ACCEPTABLE OUTPUT FORMAT
+- Produce the full repository tree and each file's content inline so I can copy/paste into Replit.
+- Use clear separators for files like `--- FILE: frontend/package.json ---` then the file contents, etc.
+- Ensure there are no hidden tokens or secrets in the generated output.
+
+Now generate the full project code and README following the exact instructions above. Keep the initial scaffold fully runnable using simulated data if the user hasn't set any secrets. End the response with the checklist of environment variables and the exact commands to run on Replit.

@@ -1,0 +1,144 @@
+You are a senior full-stack developer. Generate a complete, working **Station Manager only** system for an EV Charging Locator app. This project is strictly for station owners (manager users) to sign up/login and manage their stations — there is no public user-facing station display. Integrate with Firebase (Auth, Firestore, Storage) and React (Vite + Tailwind). Output all frontend files, backend logic (optional), Firestore rules, storage rules, helper services, and a README. Keep code simple, well-commented, and runnable on Replit. Include safe fallbacks when secrets are missing.
+
+--- KEY REQUIREMENTS (manager-only)
+1. Owner auth only:
+   - Owners sign up with email/password and optional Google sign-in.
+   - Signup collects: fullName, businessName, phone, businessAddress.
+   - After auth, create Firestore document at `/owners/{uid}`:
+     { uid, fullName, businessName, phone, address, role: "owner", createdAt }
+
+2. Owner dashboard (protected):
+   - Route `/owner/dashboard` only accessible to authenticated owners (check `/owners/{uid}` exists).
+   - Dashboard lets owner: Create / Read / Update / Delete their stations and view bookings related to their stations (bookings optional).
+   - No public pages that list stations for general users; station docs and images are only visible to the owning manager and admins.
+
+3. Station CRUD:
+   - Station fields:
+     name, description, address, location {lat, lon}, connectors [{type, power_kW, count, price_per_kWh}], images [urls], hours {open, close}, status ("pending" | "active" | "maintenance"), ownerId, createdAt, updatedAt.
+   - CreateStation must set ownerId = current uid and default status = "pending".
+   - Update/Delete allowed only for owner.
+
+4. Image upload:
+   - Upload images to Firebase Storage at path `stations/{stationId}/images/{filename}` using resumable upload.
+   - Save download URLs into station document.
+
+5. Realtime:
+   - Use Firestore `onSnapshot` in dashboard so owner sees changes immediately.
+
+6. Admin approval (optional):
+   - Provide a backend endpoint `POST /admin/stations/:stationId/approve` that sets status = "active". Admin check can be simple (owners doc role == "admin" or ADMIN_UID secret).
+
+7. Security & privacy:
+   - No public read of station documents. Only owners and admin can read/write their stations.
+   - Generate Firestore and Storage rules that enforce owner-only access.
+
+--- FRONTEND FILES TO GENERATE
+Produce these files (concise, well-commented):
+
+--- FILE: frontend/package.json ---
+--- FILE: frontend/vite.config.js ---
+--- FILE: frontend/src/main.jsx ---
+--- FILE: frontend/src/App.jsx ---
+--- FILE: frontend/src/pages/OwnerSignup.jsx ---
+--- FILE: frontend/src/pages/OwnerLogin.jsx ---
+--- FILE: frontend/src/pages/OwnerDashboard.jsx ---
+--- FILE: frontend/src/components/StationForm.jsx ---
+--- FILE: frontend/src/components/StationCard.jsx ---
+--- FILE: frontend/src/services/firebaseClient.js ---
+--- FILE: frontend/src/services/storage.js ---
+--- FILE: frontend/src/styles/tailwind.css ---
+
+Each React page/component should:
+- Use Firebase client SDK (v9 modular) for auth, Firestore and Storage.
+- Protect dashboard routes: redirect to login if not authenticated or not an owner.
+- Provide clear UI messages and basic validation.
+- Include helper functions: createOwnerProfile(), getOwnerProfile(), createStation(), updateStation(), deleteStation(), uploadStationImages().
+
+--- BACKEND (optional)
+If backend included, generate:
+--- FILE: server/package.json ---
+--- FILE: server/index.js ---
+--- FILE: server/routes/admin.js ---
+--- FILE: server/services/firebaseAdmin.js ---
+
+Backend must:
+- Initialize firebase-admin via `FIREBASE_ADMIN_CREDENTIALS` secret.
+- Implement `POST /admin/stations/:stationId/approve` which verifies admin role and updates station status.
+
+--- FIRESTORE SCHEMA (manager-only)
+/owners/{ownerId} {
+  uid, fullName, businessName, phone, address, role, createdAt
+}
+/stations/{stationId} {
+  name, description, address, location, connectors[], images[], hours, status, ownerId, createdAt, updatedAt
+}
+
+--- FIRESTORE RULES (manager-only, copy as firestore.rules)
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Owners collection: only owner can manage their profile
+    match /owners/{ownerId} {
+      allow create: if request.auth != null && request.auth.uid == ownerId;
+      allow read: if request.auth != null && request.auth.uid == ownerId;
+      allow update, delete: if request.auth != null && request.auth.uid == ownerId;
+    }
+
+    // Stations: ONLY owner or admin can read/write
+    match /stations/{stationId} {
+      allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
+      allow read, update, delete: if request.auth != null &&
+        (request.auth.uid == resource.data.ownerId || exists(/databases/$(database)/documents/owners/$(request.auth.uid)) && get(/databases/$(database)/documents/owners/$(request.auth.uid)).data.role == 'admin');
+    }
+
+    // Optional bookings collection restricted to station owners and booking users as needed
+    match /bookings/{bookingId} {
+      allow read: if false; // disable or restrict as per need
+      allow write: if false;
+    }
+  }
+}
+
+--- STORAGE RULES (storage.rules)
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Station images: only owner or admin can write/read
+    match /stations/{stationId}/images/{allPaths=**} {
+      allow read: if request.auth != null && (
+        request.auth.uid == get(/databases/$(database)/documents/stations/$(stationId)).data.ownerId
+        || exists(/databases/$(database)/documents/owners/$(request.auth.uid)) && get(/databases/$(database)/documents/owners/$(request.auth.uid)).data.role == 'admin'
+      );
+      allow write: if request.auth != null && request.auth.uid == get(/databases/$(database)/documents/stations/$(stationId)).data.ownerId;
+    }
+  }
+}
+
+--- ENV / REPLIT SECRETS
+List these in README and require them in Replit:
+- VITE_FIREBASE_API_KEY
+- VITE_FIREBASE_AUTH_DOMAIN
+- VITE_FIREBASE_PROJECT_ID
+- VITE_FIREBASE_STORAGE_BUCKET
+- VITE_FIREBASE_MESSAGING_SENDER_ID
+- VITE_FIREBASE_APP_ID
+- FIREBASE_ADMIN_CREDENTIALS (for server & simulator)
+- ADMIN_UID or ADMIN_ROLE_SECRET (optional for admin-only actions)
+
+--- README (must include)
+- Purpose: manager-only station management tool.
+- How to add Replit secrets.
+- How to run frontend: `cd frontend && npm install && npm run dev`.
+- How to run backend (optional): `cd server && npm install && npm run dev`.
+- How to test: signup as owner → add station → upload image → see station in dashboard.
+- Troubleshooting & fallback behavior when secrets missing (use local JSON store).
+
+--- OUTPUT FORMAT
+Return the full repo tree and each file's content inline using separators like:
+--- FILE: frontend/src/pages/OwnerSignup.jsx ---
+<code here>
+
+Ensure nothing in output contains real API keys or private credentials.
+
+Now generate the full code files described above and the README so I can copy/paste into Replit. Keep functionality guaranteed even if Firebase secrets are not set (fallback to local JSON storage).
